@@ -37,8 +37,8 @@ struct SettingsView: View {
             }
 
             Section("Informazioni") {
-                LabeledContent("Versione", value: "1.0 · Build 3")
-                Text("Meteo, posizione e cambio valuta usano dati reali. Lo stato dei voli richiede una chiave API personale, che verrà collegata nella prossima configurazione.")
+                LabeledContent("Versione", value: "1.0 · Build 5")
+                Text("Meteo, cambio valuta e stato dei voli sono collegati ai servizi reali configurati nella build.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

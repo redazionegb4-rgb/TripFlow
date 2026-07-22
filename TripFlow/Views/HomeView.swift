@@ -23,8 +23,8 @@ struct HomeView: View {
         .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $showNotifications) { NavigationStack { NotificationsView() } }
         .sheet(isPresented: $showConverter) { NavigationStack { CurrencyConverterView() } }
-        .task { liveData.refresh(destination: trips.nextFlight?.destinationCity); notifications.refreshAuthorization() }
-        .refreshable { liveData.refresh(destination: trips.nextFlight?.destinationCity) }
+        .task { liveData.refresh(destination: trips.nextFlight?.destinationCity, flight: trips.nextFlight); notifications.refreshAuthorization() }
+        .refreshable { liveData.refresh(destination: trips.nextFlight?.destinationCity, flight: trips.nextFlight) }
     }
 
     private var topBar: some View {
@@ -46,10 +46,25 @@ struct HomeView: View {
     private func hero(_ flight: Flight) -> some View {
         NavigationLink(destination: FlightDetailView(flight: flight)) {
             VStack(alignment: .leading, spacing: 20) {
-                HStack { Text(flight.code).font(.headline); Spacer(); Label(flight.status.rawValue, systemImage: flight.status.symbol).font(.caption.bold()).padding(8).background(.white.opacity(0.15), in: Capsule()) }
+                HStack {
+                    Text(flight.code).font(.headline)
+                    Spacer()
+                    let live = liveData.live(for: flight)
+                    Label(live?.status ?? flight.status.rawValue, systemImage: live == nil ? flight.status.symbol : "dot.radiowaves.left.and.right")
+                        .font(.caption.bold())
+                        .padding(8)
+                        .background(.white.opacity(0.15), in: Capsule())
+                }
                 HStack { airport(flight.originCode, flight.originCity); Spacer(); Image(systemName:"airplane").font(.title2).rotationEffect(.degrees(90)); Spacer(); airport(flight.destinationCode, flight.destinationCity) }
                 Divider().overlay(.white.opacity(0.2))
-                HStack { meta("Partenza", flight.departure.formatted(date:.abbreviated,time:.shortened)); Spacer(); meta("Terminal",flight.terminal); Spacer(); meta("Gate",flight.gate) }
+                let live = liveData.live(for: flight)
+                HStack {
+                    meta("Partenza", (live?.revisedDeparture ?? live?.scheduledDeparture ?? flight.departure).formatted(date:.abbreviated,time:.shortened))
+                    Spacer()
+                    meta("Terminal", live?.departureTerminal ?? flight.terminal)
+                    Spacer()
+                    meta("Gate", live?.departureGate ?? flight.gate)
+                }
             }.foregroundStyle(.white).padding(22)
             .background(LinearGradient(colors:[AppTheme.navy,AppTheme.accent],startPoint:.topLeading,endPoint:.bottomTrailing),in:RoundedRectangle(cornerRadius:30))
         }.buttonStyle(.plain)
