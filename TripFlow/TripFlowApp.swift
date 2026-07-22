@@ -14,6 +14,7 @@ struct TripFlowApp: App {
                 .environmentObject(notifications)
                 .environmentObject(trips)
                 .preferredColorScheme(colorScheme)
+                .environment(\.locale, Locale(identifier: "it_IT"))
         }
     }
 
