@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @EnvironmentObject private var notificationsManager: NotificationManager
     @AppStorage("appearance") private var appearance = "system"
     @AppStorage("notifications") private var notifications = true
     @AppStorage("hour24") private var hour24 = true
@@ -24,6 +25,7 @@ struct SettingsView: View {
 
             Section("Voli") {
                 Toggle(isOn: $notifications) { settingLabel("Notifiche volo", "bell.badge.fill", .orange) }
+                    .onChange(of: notifications) { _, enabled in if enabled { notificationsManager.requestPermission() } }
                 Toggle(isOn: $liveActivities) { settingLabel("Attività in tempo reale", "waveform.path.ecg.rectangle.fill", AppTheme.accent) }
                 Toggle(isOn: $hour24) { settingLabel("Formato 24 ore", "clock.fill", .cyan) }
             }
@@ -35,8 +37,8 @@ struct SettingsView: View {
             }
 
             Section("Informazioni") {
-                LabeledContent("Versione", value: "1.0")
-                Text("TripFlow è una build dimostrativa. Le API per voli, meteo e cambio verranno collegate dopo l'approvazione della grafica.")
+                LabeledContent("Versione", value: "1.0 · Build 3")
+                Text("Meteo, posizione e cambio valuta usano dati reali. Lo stato dei voli richiede una chiave API personale, che verrà collegata nella prossima configurazione.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

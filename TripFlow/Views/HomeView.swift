@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct HomeView: View {
+    @EnvironmentObject private var liveData: LiveDataStore
+    @EnvironmentObject private var notifications: NotificationManager
     private let flight = Flight.demo
 
     var body: some View {
@@ -20,6 +22,8 @@ struct HomeView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
+        .task { liveData.refresh(); notifications.refreshAuthorization() }
+        .refreshable { liveData.refresh() }
     }
 
     private var topBar: some View {
@@ -33,11 +37,21 @@ struct HomeView: View {
                     .font(.system(size: 28, weight: .bold, design: .rounded))
             }
             Spacer()
-            Button(action: {}) {
-                Image(systemName: "bell.fill")
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 46, height: 46)
-                    .background(.ultraThinMaterial, in: Circle())
+            NavigationLink(destination: NotificationsView()) {
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: notifications.unreadCount > 0 ? "bell.fill" : "bell")
+                        .font(.system(size: 17, weight: .semibold))
+                        .frame(width: 46, height: 46)
+                        .background(.ultraThinMaterial, in: Circle())
+                    if notifications.unreadCount > 0 {
+                        Text("\(min(notifications.unreadCount, 9))")
+                            .font(.caption2.bold())
+                            .foregroundStyle(.white)
+                            .frame(width: 19, height: 19)
+                            .background(.red, in: Circle())
+                            .offset(x: 2, y: -2)
+                    }
+                }
             }
             .buttonStyle(.plain)
         }
@@ -148,8 +162,8 @@ struct HomeView: View {
             Text("Tutto sotto controllo")
                 .font(.title3.bold())
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                action("Meteo", "19° · Sole", "sun.max.fill", AppTheme.cyan)
-                action("Cambio", "1 € = 1,09 $", "arrow.left.arrow.right", AppTheme.accent)
+                action("Meteo", weatherText, liveData.weatherSymbol, AppTheme.cyan)
+                action("Cambio", exchangeText, "arrow.left.arrow.right", AppTheme.accent)
                 action("Valigia", "5 elementi mancanti", "suitcase.fill", .orange)
                 action("Documenti", "3 salvati", "doc.fill", .pink)
             }
@@ -183,9 +197,9 @@ struct HomeView: View {
                     .frame(width: 54, height: 54)
                     .background(LinearGradient(colors: [AppTheme.accent, AppTheme.cyan], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 18))
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("New York")
+                    Text(liveData.city)
                         .font(.headline)
-                    Text("Ora locale 07:22 · 19°C")
+                    Text(destinationSubtitle)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -193,6 +207,23 @@ struct HomeView: View {
                 Image(systemName: "chevron.right").foregroundStyle(.secondary)
             }
         }
+    }
+
+    private var weatherText: String {
+        if liveData.isLoading { return "Aggiornamento…" }
+        if let value = liveData.temperature { return "\(Int(value.rounded()))° · Dati reali" }
+        return "Posizione richiesta"
+    }
+
+    private var exchangeText: String {
+        guard let rate = liveData.euroToUSD else { return "Aggiornamento…" }
+        return String(format: "1 € = %.2f $", rate)
+    }
+
+    private var destinationSubtitle: String {
+        let time = Date().formatted(date: .omitted, time: .shortened)
+        if let value = liveData.temperature { return "Ora locale \(time) · \(Int(value.rounded()))°C" }
+        return "Ora locale \(time)"
     }
 
     private var background: some View {
