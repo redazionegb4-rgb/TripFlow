@@ -41,6 +41,21 @@ struct WeatherSnapshot: Equatable {
     let windSpeed: Double?
 }
 
+
+struct FlightLookupResult: Equatable {
+    let flightNumber: String
+    let airline: String
+    let originCode: String
+    let originCity: String
+    let destinationCode: String
+    let destinationCity: String
+    let departure: Date
+    let arrival: Date
+    let terminal: String
+    let gate: String
+    let status: String
+}
+
 struct FlightLiveSnapshot: Equatable {
     let flightNumber: String
     let status: String
@@ -163,6 +178,61 @@ final class LiveDataStore: NSObject, ObservableObject, CLLocationManagerDelegate
         } catch {
             errorMessage = "Impossibile aggiornare i cambi valuta."
         }
+    }
+
+    func lookupFlight(number rawNumber: String, date: Date) async throws -> FlightLookupResult {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        let day = formatter.string(from: date)
+        let number = rawNumber.uppercased().replacingOccurrences(of: " ", with: "")
+
+        guard !number.isEmpty,
+              let encoded = number.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+              let url = URL(string: "https://aerodatabox.p.rapidapi.com/flights/number/\(encoded)/\(day)?withLocation=false") else {
+            throw URLError(.badURL)
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 25
+        request.setValue(APIConfig.aeroDataBoxHost, forHTTPHeaderField: "x-rapidapi-host")
+        request.setValue(APIConfig.aeroDataBoxKey, forHTTPHeaderField: "x-rapidapi-key")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try validate(response)
+        let decoded = try JSONDecoder().decode([AeroFlight].self, from: data)
+        guard let selected = decoded.first else { throw FlightLookupError.notFound }
+
+        let snapshot = selected.snapshot
+        let originCity = selected.departure?.airport?.municipalityName
+            ?? selected.departure?.airport?.name
+            ?? snapshot.originCode
+            ?? ""
+        let destinationCity = selected.arrival?.airport?.municipalityName
+            ?? selected.arrival?.airport?.name
+            ?? snapshot.destinationCode
+            ?? ""
+        guard let departure = snapshot.scheduledDeparture ?? snapshot.revisedDeparture,
+              let arrival = snapshot.scheduledArrival ?? snapshot.revisedArrival else {
+            throw FlightLookupError.incompleteData
+        }
+
+        return FlightLookupResult(
+            flightNumber: snapshot.flightNumber.isEmpty ? number : snapshot.flightNumber,
+            airline: snapshot.airline ?? "Compagnia non disponibile",
+            originCode: snapshot.originCode ?? "",
+            originCity: originCity,
+            destinationCode: snapshot.destinationCode ?? "",
+            destinationCity: destinationCity,
+            departure: departure,
+            arrival: arrival,
+            terminal: snapshot.departureTerminal ?? "Da assegnare",
+            gate: snapshot.departureGate ?? "Da assegnare",
+            status: snapshot.status
+        )
     }
 
     func fetchFlightStatus(_ flight: Flight) async {
@@ -317,7 +387,7 @@ private struct AeroMovement: Decodable {
     let gate: String?
     let baggageBelt: String?
 }
-private struct AeroAirport: Decodable { let iata: String?; let icao: String?; let name: String? }
+private struct AeroAirport: Decodable { let iata: String?; let icao: String?; let name: String?; let municipalityName: String? }
 private struct AeroTime: Decodable { let utc: String?; let local: String? }
 private struct AeroAircraft: Decodable { let model: String? }
 private struct AeroAirline: Decodable { let name: String? }
@@ -387,5 +457,18 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
         await MainActor.run { self.unreadCount += 1 }
         return [.banner, .sound, .badge]
+    }
+}
+
+
+enum FlightLookupError: LocalizedError {
+    case notFound
+    case incompleteData
+
+    var errorDescription: String? {
+        switch self {
+        case .notFound: return "Nessun volo trovato per il numero e la data indicati."
+        case .incompleteData: return "Il servizio ha trovato il volo, ma non ha restituito tutti i dati necessari."
+        }
     }
 }
