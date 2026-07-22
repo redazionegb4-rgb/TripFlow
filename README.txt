@@ -1,7 +1,9 @@
-TRIPFLOW — PRIMA BUILD
+TRIPFLOW — BUILD 2 REDESIGN COMPLETO
 
 Apri TripFlow.xcodeproj con Xcode 15 o successivo.
 Seleziona il target TripFlow > Signing & Capabilities e scegli il tuo Team.
-Il bundle identifier iniziale è com.dmb.tripflow e può essere cambiato.
+Bundle identifier: com.dmb.tripflow
+Versione 1.0 — Build 2
 
-Questa prima build usa dati dimostrativi e non richiede API o database.
+Questa build usa ancora dati dimostrativi e non richiede API o database.
+Grafica, icona, Home, impostazioni e navigazione sono state rifatte da zero.

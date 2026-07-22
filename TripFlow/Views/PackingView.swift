@@ -2,23 +2,33 @@ import SwiftUI
 
 struct PackingView: View {
     @State private var items: [PackingItem] = [
-        .init(title: "Passaporto", category: .documents, isPacked: true),
-        .init(title: "Carta d'imbarco", category: .documents),
-        .init(title: "6 magliette", category: .clothes, isPacked: true),
-        .init(title: "2 pantaloni", category: .clothes),
+        .init(title: "Passaporto", category: .essentials, isPacked: true),
+        .init(title: "Carta d'imbarco", category: .essentials),
+        .init(title: "Adattatore USA", category: .electronics),
         .init(title: "Caricatore iPhone", category: .electronics, isPacked: true),
-        .init(title: "Power bank", category: .electronics),
+        .init(title: "Magliette", category: .clothes, isPacked: true),
         .init(title: "Farmaci personali", category: .personal)
     ]
-    @State private var newItem = ""
+    @State private var showingAdd = false
 
     var body: some View {
         List {
             Section {
-                ProgressView(value: progress)
-                Text("\(packedCount) di \(items.count) elementi pronti")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("Valigia pronta")
+                            .font(.headline)
+                        Spacer()
+                        Text("\(Int(progress * 100))%")
+                            .font(.headline)
+                            .foregroundStyle(AppTheme.accent)
+                    }
+                    ProgressView(value: progress).tint(AppTheme.accent)
+                    Text("\(packedCount) di \(items.count) elementi completati")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 8)
             }
 
             ForEach(PackingCategory.allCases) { category in
@@ -27,12 +37,13 @@ struct PackingView: View {
                         Button {
                             items[index].isPacked.toggle()
                         } label: {
-                            HStack {
+                            HStack(spacing: 12) {
                                 Image(systemName: items[index].isPacked ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(items[index].isPacked ? .green : .secondary)
+                                    .foregroundStyle(items[index].isPacked ? AppTheme.accent : .secondary)
                                 Text(items[index].title)
-                                    .strikethrough(items[index].isPacked)
                                     .foregroundStyle(.primary)
+                                    .strikethrough(items[index].isPacked)
+                                Spacer()
                             }
                         }
                     }
@@ -44,21 +55,46 @@ struct PackingView: View {
                     Label(category.rawValue, systemImage: category.symbol)
                 }
             }
-
-            Section("Aggiungi") {
-                HStack {
-                    TextField("Nuovo elemento", text: $newItem)
-                    Button("Aggiungi") {
-                        guard !newItem.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-                        items.append(.init(title: newItem, category: .personal))
-                        newItem = ""
-                    }
-                }
-            }
         }
         .navigationTitle("La mia valigia")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { showingAdd = true } label: { Image(systemName: "plus") }
+            }
+        }
+        .sheet(isPresented: $showingAdd) { AddPackingItemView(items: $items) }
     }
 
     private var packedCount: Int { items.filter(\.isPacked).count }
     private var progress: Double { items.isEmpty ? 0 : Double(packedCount) / Double(items.count) }
+}
+
+private struct AddPackingItemView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var items: [PackingItem]
+    @State private var title = ""
+    @State private var category: PackingCategory = .essentials
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("Elemento", text: $title)
+                Picker("Categoria", selection: $category) {
+                    ForEach(PackingCategory.allCases) { Text($0.rawValue).tag($0) }
+                }
+            }
+            .navigationTitle("Nuovo elemento")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Annulla") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Aggiungi") {
+                        items.append(.init(title: title, category: category))
+                        dismiss()
+                    }
+                    .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+        }
+    }
 }
