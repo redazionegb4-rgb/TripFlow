@@ -6,6 +6,7 @@ struct HomeView: View {
     @EnvironmentObject private var trips: TripStore
     @State private var showNotifications = false
     @State private var showConverter = false
+    @State private var showDestinationHub = false
 
     var body: some View {
         ZStack {
@@ -13,7 +14,7 @@ struct HomeView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 20) {
                     topBar
-                    if let flight = trips.nextFlight { hero(flight); countdown(flight); destinationSection(flight) }
+                    if let flight = trips.nextFlight { hero(flight); countdown(flight); timeSection(flight); destinationSection(flight) }
                     else { emptyTrip }
                     quickActions
                 }
@@ -23,6 +24,7 @@ struct HomeView: View {
         .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $showNotifications) { NavigationStack { NotificationsView() } }
         .sheet(isPresented: $showConverter) { NavigationStack { CurrencyConverterView() } }
+        .sheet(isPresented: $showDestinationHub) { NavigationStack { DestinationHubView() } }
         .task { liveData.refresh(destination: trips.nextFlight?.destinationCity, flight: trips.nextFlight); notifications.refreshAuthorization() }
         .refreshable { liveData.refresh(destination: trips.nextFlight?.destinationCity, flight: trips.nextFlight) }
     }
@@ -77,15 +79,87 @@ struct HomeView: View {
         VStack(alignment:.leading,spacing:12){ Text("Strumenti di viaggio").font(.title3.bold()); LazyVGrid(columns:[GridItem(.flexible()),GridItem(.flexible())],spacing:12){
             action("Meteo attuale", liveData.currentWeather.map{"\(Int($0.temperature.rounded()))° · \($0.city)"} ?? "Aggiornamento…", liveData.symbol(for: liveData.currentWeather?.code), AppTheme.cyan, {})
             action("Converti valuta", "Calcola quanto valgono i soldi", "eurosign.arrow.circlepath", AppTheme.accent, {showConverter=true})
-            action("Valigia", "Checklist del viaggio", "suitcase.fill", .orange, {})
-            action("Documenti", "Protetti con Face ID", "faceid", .pink, {})
+            action("Valigia", "Checklist personale", "suitcase.fill", .orange, { NotificationCenter.default.post(name: .openPackingTab, object: nil) })
+            action("Documenti", "Protetti con Face ID", "faceid", .pink, { NotificationCenter.default.post(name: .openDocumentsTab, object: nil) })
+            action("Destinazione", "Orari, meteo e servizi", "location.fill", .green, { showDestinationHub = true })
         }}
     }
     private func action(_ title:String,_ subtitle:String,_ icon:String,_ color:Color,_ tap:@escaping()->Void)->some View { Button(action:tap){VStack(alignment:.leading,spacing:12){Image(systemName:icon).font(.title2).foregroundStyle(color);Text(title).font(.headline);Text(subtitle).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.leading)}.frame(maxWidth:.infinity,minHeight:110,alignment:.leading).padding(15).background(.thinMaterial,in:RoundedRectangle(cornerRadius:20))}.buttonStyle(.plain) }
 
+
+    private func timeSection(_ flight: Flight) -> some View {
+        TimelineView(.periodic(from: .now, by: 30)) { context in
+            HStack(spacing: 12) {
+                timeCard("Ora locale", date: context.date, timeZone: .current, icon: "location.circle.fill")
+                timeCard("Ora a destinazione", date: context.date, timeZone: destinationTimeZone(for: flight.destinationCode), icon: "globe.europe.africa.fill")
+            }
+        }
+    }
+    private func timeCard(_ title: String, date: Date, timeZone: TimeZone, icon: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: icon).foregroundStyle(AppTheme.accent)
+            Text(title).font(.caption).foregroundStyle(.secondary)
+            Text(formattedTime(date, timeZone: timeZone))
+                .font(.system(size: 24, weight: .bold, design: .rounded))
+            Text(timeZone.identifier.replacingOccurrences(of: "_", with: " ")).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+        }.frame(maxWidth: .infinity, alignment: .leading).padding(15).background(.thinMaterial, in: RoundedRectangle(cornerRadius: 20))
+    }
+    private func formattedTime(_ date: Date, timeZone: TimeZone) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "it_IT")
+        formatter.dateFormat = "HH:mm"
+        formatter.timeZone = timeZone
+        return formatter.string(from: date)
+    }
+    private func destinationTimeZone(for airport: String) -> TimeZone {
+        let zones: [String: String] = [
+            "JFK":"America/New_York", "EWR":"America/New_York", "LGA":"America/New_York",
+            "LAX":"America/Los_Angeles", "SFO":"America/Los_Angeles", "MIA":"America/New_York",
+            "ORD":"America/Chicago", "BCN":"Europe/Madrid", "MAD":"Europe/Madrid",
+            "FCO":"Europe/Rome", "MXP":"Europe/Rome", "LIN":"Europe/Rome", "NAP":"Europe/Rome",
+            "LHR":"Europe/London", "LGW":"Europe/London", "CDG":"Europe/Paris", "ORY":"Europe/Paris",
+            "DXB":"Asia/Dubai", "DOH":"Asia/Qatar", "HND":"Asia/Tokyo", "NRT":"Asia/Tokyo",
+            "SYD":"Australia/Sydney", "GRU":"America/Sao_Paulo", "CUN":"America/Cancun"
+        ]
+        return TimeZone(identifier: zones[airport.uppercased()] ?? "UTC") ?? .current
+    }
+
     private func destinationSection(_ flight:Flight)->some View { VStack(alignment:.leading,spacing:12){Text("Meteo a destinazione").font(.title3.bold()); if let w=liveData.destinationWeather { HStack{Image(systemName:liveData.symbol(for:w.code)).font(.largeTitle).foregroundStyle(AppTheme.cyan);VStack(alignment:.leading){Text(w.city).font(.headline);Text("\(Int(w.temperature.rounded()))° adesso").font(.title2.bold());if let min=w.minimum,let max=w.maximum{Text("Min \(Int(min.rounded()))° · Max \(Int(max.rounded()))°").font(.caption).foregroundStyle(.secondary)}};Spacer()}.padding(18).background(.thinMaterial,in:RoundedRectangle(cornerRadius:22)) } else { ProgressView("Caricamento meteo di \(flight.destinationCity)…").frame(maxWidth:.infinity,alignment:.leading).padding() } } }
     private var emptyTrip: some View { ContentUnavailableView("Nessun viaggio",systemImage:"airplane",description:Text("Aggiungi un volo dalla sezione Viaggi.")) }
     private var background: some View { LinearGradient(colors:[Color(.systemBackground),AppTheme.accent.opacity(0.07)],startPoint:.top,endPoint:.bottom).ignoresSafeArea() }
+}
+
+struct DestinationHubView: View {
+    @EnvironmentObject private var liveData: LiveDataStore
+    @EnvironmentObject private var trips: TripStore
+    var body: some View {
+        List {
+            if let flight = trips.nextFlight {
+                Section("Destinazione") {
+                    LabeledContent("Città", value: flight.destinationCity)
+                    LabeledContent("Aeroporto", value: flight.destinationCode)
+                    if let weather = liveData.destinationWeather {
+                        LabeledContent("Meteo", value: "\(Int(weather.temperature.rounded()))° · \(weather.description.capitalized)")
+                    }
+                }
+                Section("Funzioni predisposte") {
+                    feature("Luoghi utili", "Ristoranti, farmacie, ospedali, bancomat e parcheggi", "mappin.and.ellipse")
+                    feature("Eventi", "Concerti, spettacoli e sport nella città", "ticket.fill")
+                    feature("Trasporti", "Percorsi tra aeroporto, hotel e centro", "tram.fill")
+                    feature("Numeri utili", "Emergenze, consolati e assistenza", "cross.case.fill")
+                }
+            } else {
+                ContentUnavailableView("Nessuna destinazione", systemImage: "location.slash", description: Text("Aggiungi prima un viaggio."))
+            }
+        }.navigationTitle("Destinazione").task { liveData.refresh(destination: trips.nextFlight?.destinationCity, flight: trips.nextFlight) }
+    }
+    private func feature(_ title: String, _ subtitle: String, _ icon: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon).foregroundStyle(AppTheme.accent).frame(width: 30)
+            VStack(alignment: .leading, spacing: 3) { Text(title); Text(subtitle).font(.caption).foregroundStyle(.secondary) }
+            Spacer(); Text("Pronto").font(.caption2.bold()).foregroundStyle(AppTheme.accent).padding(.horizontal, 8).padding(.vertical, 5).background(AppTheme.accent.opacity(0.1), in: Capsule())
+        }
+    }
 }
 
 struct CurrencyConverterView: View {

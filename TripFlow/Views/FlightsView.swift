@@ -2,6 +2,7 @@ import SwiftUI
 
 struct FlightsView: View {
     @EnvironmentObject private var trips: TripStore
+    @Environment(\.editMode) private var editMode
     @State private var showingAddFlight = false
 
     var body: some View {
@@ -27,7 +28,7 @@ struct FlightsView: View {
         .navigationTitle("I miei viaggi")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) { Button { showingAddFlight = true } label: { Image(systemName: "plus") } }
-            ToolbarItem(placement: .topBarLeading) { EditButton() }
+            ToolbarItem(placement: .topBarLeading) { Button(editMode?.wrappedValue == .active ? "Fine" : "Modifica") { withAnimation { editMode?.wrappedValue = editMode?.wrappedValue == .active ? .inactive : .active } } }
         }
         .sheet(isPresented: $showingAddFlight) { AddFlightView() }
     }
@@ -56,6 +57,7 @@ struct FlightsView: View {
 
 private struct AddFlightView: View {
     @EnvironmentObject private var trips: TripStore
+    @Environment(\.editMode) private var editMode
     @EnvironmentObject private var liveData: LiveDataStore
     @Environment(\.dismiss) private var dismiss
 

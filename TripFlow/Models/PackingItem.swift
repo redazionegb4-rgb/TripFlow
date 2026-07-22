@@ -1,13 +1,13 @@
 import Foundation
 
-struct PackingItem: Identifiable {
-    let id = UUID()
+struct PackingItem: Identifiable, Codable, Hashable {
+    var id: UUID = UUID()
     var title: String
     var category: PackingCategory
     var isPacked = false
 }
 
-enum PackingCategory: String, CaseIterable, Identifiable {
+enum PackingCategory: String, CaseIterable, Identifiable, Codable {
     case essentials = "Essenziali"
     case clothes = "Abbigliamento"
     case electronics = "Tecnologia"

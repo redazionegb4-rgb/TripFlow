@@ -1,5 +1,10 @@
 import SwiftUI
 
+extension Notification.Name {
+    static let openPackingTab = Notification.Name("TripFlow.openPackingTab")
+    static let openDocumentsTab = Notification.Name("TripFlow.openDocumentsTab")
+}
+
 struct RootView: View {
     @State private var selectedTab = 0
 
@@ -26,6 +31,8 @@ struct RootView: View {
                 .tag(4)
         }
         .tint(AppTheme.accent)
+        .onReceive(NotificationCenter.default.publisher(for: .openPackingTab)) { _ in selectedTab = 2 }
+        .onReceive(NotificationCenter.default.publisher(for: .openDocumentsTab)) { _ in selectedTab = 3 }
     }
 }
 
