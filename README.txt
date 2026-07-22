@@ -1,9 +1,7 @@
-TRIPFLOW — BUILD 2 REDESIGN COMPLETO
-
-Apri TripFlow.xcodeproj con Xcode 15 o successivo.
-Seleziona il target TripFlow > Signing & Capabilities e scegli il tuo Team.
-Bundle identifier: com.dmb.tripflow
-Versione 1.0 — Build 2
-
-Questa build usa ancora dati dimostrativi e non richiede API o database.
-Grafica, icona, Home, impostazioni e navigazione sono state rifatte da zero.
+TripFlow Build 4
+- Viaggi persistenti con aggiunta ed eliminazione via swipe/Edit
+- Convertitore valuta reale tramite Frankfurter
+- Meteo reale posizione e città di destinazione tramite Open-Meteo
+- Campanella corretta con pagina notifiche dedicata
+- Documenti protetti con Face ID/Touch ID/codice dispositivo
+Nota: stato volo, gate e ritardi realmente live richiedono una chiave API di un provider voli.
